@@ -71,6 +71,7 @@ jobs:
             --also-make \
             -DskipTests \
             -Dlicense.skip=true \
+            -Djacoco.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
@@ -110,6 +111,7 @@ jobs:
             -pl common/util \
             --also-make \
             -Dlicense.skip=true \
+            -Djacoco.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
@@ -213,6 +215,7 @@ jobs:
             -pl dao \
             --also-make \
             -Dlicense.skip=true \
+            -Djacoco.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
