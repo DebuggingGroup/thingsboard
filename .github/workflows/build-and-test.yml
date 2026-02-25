@@ -46,24 +46,23 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # JDK 25 with Amazon Corretto – matches maven.compiler.source in pom.xml
-      - name: Set up JDK 25 (Corretto)
+      # JDK 25 with Temurin (Eclipse Adoptium) – fastest to publish new Java versions
+      - name: Set up JDK 25 (Temurin)
         uses: actions/setup-java@v4
         with:
-          distribution: corretto
+          distribution: temurin
           java-version: '25'
           cache: maven  # caches ~/.m2/repository between runs
 
       # --projects excludes the Angular UI module (built separately) and the
       # black-box tests (they need Docker + a running TB instance).
-      # -DblackBoxTests.skip=true is redundant but explicit.
+      # --also-make is intentionally omitted when using ! exclusions.
       - name: Build and run unit tests
         env:
           MAVEN_OPTS: '-Xmx2g -XX:+UseG1GC'
         run: |
           mvn -T 1C clean verify \
-            --projects '!ui-ngx,!msa/black-box-tests' \
-            --also-make \
+            -pl '!ui-ngx,!msa/black-box-tests' \
             -DblackBoxTests.skip=true \
             -Dpkg.disabled=true \
             -B -ntp
@@ -97,19 +96,19 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
-          cache-dependency-path: ui-ngx/package-lock.json
+          cache: yarn
+          cache-dependency-path: ui-ngx/yarn.lock
 
       - name: Install dependencies
-        run: npm ci
+        run: yarn install --frozen-lockfile
 
       - name: Lint
-        run: npm run lint
+        run: yarn lint
 
       - name: Production build
         env:
           NODE_OPTIONS: '--max_old_space_size=4096'
-        run: npm run build:prod
+        run: yarn build:prod
 
   # ─────────────────────────────────────────────────────────────
   # Job 3 – Integration / DAO tests (requires PostgreSQL)
@@ -141,10 +140,10 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 25 (Corretto)
+      - name: Set up JDK 25 (Temurin)
         uses: actions/setup-java@v4
         with:
-          distribution: corretto
+          distribution: temurin
           java-version: '25'
           cache: maven
 
@@ -159,7 +158,7 @@ jobs:
           SPRING_DATASOURCE_PASSWORD: postgres
         run: |
           mvn -T 1 verify \
-            --projects dao \
+            -pl dao \
             --also-make \
             -DblackBoxTests.skip=true \
             -Dpkg.disabled=true \
