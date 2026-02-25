@@ -70,6 +70,7 @@ jobs:
             -pl common/util \
             --also-make \
             -DskipTests \
+            -Dlicense.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
@@ -108,6 +109,7 @@ jobs:
           mvn test \
             -pl common/util \
             --also-make \
+            -Dlicense.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
@@ -210,6 +212,7 @@ jobs:
           mvn -T 1 test \
             -pl dao \
             --also-make \
+            -Dlicense.skip=true \
             -Dpkg.disabled=true \
             -fae \
             -B -ntp
