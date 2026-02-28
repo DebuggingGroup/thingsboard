@@ -26,7 +26,7 @@ jobs:
           cache: maven
 
       - name: Compile backend modules (skip frontend and application)
-        run: mvn install -DskipTests -pl "!ui-ngx,!application" -Dlicense.skip=true -Djacoco.skip=true --batch-mode
+        run: mvn install -DskipTests -pl "!ui-ngx,!application,!msa" -Dlicense.skip=true -Djacoco.skip=true --batch-mode
 
   test:
     name: Run Unit Tests
@@ -45,7 +45,7 @@ jobs:
           cache: maven
 
       - name: Build dependencies
-        run: mvn install -DskipTests -pl "!ui-ngx,!application" -Dlicense.skip=true -Djacoco.skip=true --batch-mode
+        run: mvn install -DskipTests -pl "!ui-ngx,!application,!msa" -Dlicense.skip=true -Djacoco.skip=true --batch-mode
 
       - name: Run tests on common/util and common/data
         run: mvn test -pl "common/util,common/data" --also-make -Dlicense.skip=true -Djacoco.skip=true --batch-mode
