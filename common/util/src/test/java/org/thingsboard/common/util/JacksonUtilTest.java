@@ -16,6 +16,7 @@
 package org.thingsboard.common.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,6 +26,7 @@ import org.thingsboard.server.common.data.asset.Asset;
 import org.thingsboard.server.common.data.id.AssetId;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -80,6 +82,256 @@ public class JacksonUtilTest {
         assertThat(JacksonUtil.writeValueAsString(Optional.of("hello"))).isEqualTo("\"hello\"");
         assertThat(JacksonUtil.writeValueAsString(List.of(Optional.of("abc")))).isEqualTo("[\"abc\"]");
         assertThat(JacksonUtil.writeValueAsString(Set.of(Optional.empty()))).isEqualTo("[null]");
+    }
+
+    // -----------------------------------------------------------------------
+    // fromBytes(byte[], Class)
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void fromBytesClassTest() {
+        Asset asset = new Asset();
+        asset.setName("ByteAsset");
+        byte[] bytes = JacksonUtil.writeValueAsBytes(asset);
+        Asset result = JacksonUtil.fromBytes(bytes, Asset.class);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals("ByteAsset", result.getName());
+    }
+
+    @Test
+    public void fromBytesClass_nullBytes_returnsNull() {
+        Assertions.assertNull(JacksonUtil.fromBytes((byte[]) null, Asset.class));
+    }
+
+    // -----------------------------------------------------------------------
+    // fromBytes(byte[]) → JsonNode
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void fromBytesJsonNode_validJson_returnsNode() {
+        byte[] bytes = "{\"key\":\"value\"}".getBytes();
+        JsonNode node = JacksonUtil.fromBytes(bytes);
+        assertThat(node).isNotNull();
+        assertThat(node.get("key").asText()).isEqualTo("value");
+    }
+
+    // -----------------------------------------------------------------------
+    // writeValueAsBytes
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void writeValueAsBytes_roundtrip() {
+        ObjectNode obj = JacksonUtil.newObjectNode();
+        obj.put("num", 42);
+        byte[] bytes = JacksonUtil.writeValueAsBytes(obj);
+        assertThat(bytes).isNotEmpty();
+        JsonNode parsed = JacksonUtil.fromBytes(bytes);
+        assertThat(parsed.get("num").asInt()).isEqualTo(42);
+    }
+
+    // -----------------------------------------------------------------------
+    // toPrettyString
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void toPrettyString_containsIndentedOutput() {
+        ObjectNode obj = JacksonUtil.newObjectNode();
+        obj.put("a", 1);
+        obj.put("b", 2);
+        String pretty = JacksonUtil.toPrettyString(obj);
+        // Pretty-printed output should contain newlines and both fields
+        assertThat(pretty).contains("\n");
+        assertThat(pretty).contains("\"a\"");
+        assertThat(pretty).contains("\"b\"");
+    }
+
+    // -----------------------------------------------------------------------
+    // toCanonicalString
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void toCanonicalString_keysAreSorted() {
+        ObjectNode obj = JacksonUtil.newObjectNode();
+        obj.put("z", "last");
+        obj.put("a", "first");
+        String canonical = JacksonUtil.toCanonicalString(obj);
+        assertThat(canonical.indexOf("\"a\"")).isLessThan(canonical.indexOf("\"z\""));
+    }
+
+    @Test
+    public void toCanonicalString_nullValue_returnsNull() {
+        assertThat(JacksonUtil.toCanonicalString(null)).isNull();
+    }
+
+    @Test
+    public void toCanonicalString_nullFieldsOmitted() {
+        ObjectNode obj = JacksonUtil.newObjectNode();
+        obj.put("present", "yes");
+        obj.putNull("absent");
+        String canonical = JacksonUtil.toCanonicalString(obj);
+        assertThat(canonical).doesNotContain("absent");
+        assertThat(canonical).contains("present");
+    }
+
+    // -----------------------------------------------------------------------
+    // getSafely
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void getSafely_existingPath_returnsNode() {
+        ObjectNode root = JacksonUtil.newObjectNode();
+        ObjectNode child = JacksonUtil.newObjectNode();
+        child.put("leaf", "hello");
+        root.set("child", child);
+        JsonNode result = JacksonUtil.getSafely(root, "child", "leaf");
+        assertThat(result).isNotNull();
+        assertThat(result.asText()).isEqualTo("hello");
+    }
+
+    @Test
+    public void getSafely_missingIntermediateKey_returnsNull() {
+        ObjectNode root = JacksonUtil.newObjectNode();
+        root.put("a", "v");
+        assertThat(JacksonUtil.getSafely(root, "missing", "leaf")).isNull();
+    }
+
+    @Test
+    public void getSafely_nullNode_returnsNull() {
+        assertThat(JacksonUtil.getSafely(null, "any")).isNull();
+    }
+
+    // -----------------------------------------------------------------------
+    // newObjectNode / newArrayNode
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void newObjectNode_returnsEmptyObjectNode() {
+        ObjectNode node = JacksonUtil.newObjectNode();
+        assertThat(node).isNotNull();
+        assertThat(node.isObject()).isTrue();
+        assertThat(node.size()).isEqualTo(0);
+    }
+
+    @Test
+    public void newArrayNode_returnsEmptyArrayNode() {
+        ArrayNode node = JacksonUtil.newArrayNode();
+        assertThat(node).isNotNull();
+        assertThat(node.isArray()).isTrue();
+        assertThat(node.size()).isEqualTo(0);
+    }
+
+    // -----------------------------------------------------------------------
+    // clone
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void clone_producesEqualButDistinctObject() {
+        Asset original = new Asset();
+        original.setName("CloneTest");
+        original.setType("sensor");
+        Asset cloned = JacksonUtil.clone(original);
+        assertThat(cloned).isNotSameAs(original);
+        assertThat(cloned.getName()).isEqualTo(original.getName());
+        assertThat(cloned.getType()).isEqualTo(original.getType());
+    }
+
+    // -----------------------------------------------------------------------
+    // valueToTree
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void valueToTree_mapsObjectToJsonNode() {
+        Asset asset = new Asset();
+        asset.setName("TreeTest");
+        JsonNode node = JacksonUtil.valueToTree(asset);
+        assertThat(node).isNotNull();
+        assertThat(node.get("name").asText()).isEqualTo("TreeTest");
+    }
+
+    // -----------------------------------------------------------------------
+    // asObject
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void asObject_withObjectNode_returnsSameNode() {
+        ObjectNode obj = JacksonUtil.newObjectNode();
+        obj.put("k", "v");
+        ObjectNode result = JacksonUtil.asObject(obj);
+        assertThat(result).isSameAs(obj);
+    }
+
+    @Test
+    public void asObject_withNullNode_returnsEmptyObjectNode() {
+        ObjectNode result = JacksonUtil.asObject(null);
+        assertThat(result).isNotNull();
+        assertThat(result.isObject()).isTrue();
+        assertThat(result.size()).isEqualTo(0);
+    }
+
+    @Test
+    public void asObject_withArrayNode_returnsNewEmptyObjectNode() {
+        ArrayNode array = JacksonUtil.newArrayNode();
+        array.add("item");
+        ObjectNode result = JacksonUtil.asObject(array);
+        assertThat(result.isObject()).isTrue();
+        assertThat(result.size()).isEqualTo(0);
+    }
+
+    // -----------------------------------------------------------------------
+    // toFlatMap
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void toFlatMap_nestedObject_flattensWithDotNotation() {
+        ObjectNode root = JacksonUtil.newObjectNode();
+        ObjectNode child = JacksonUtil.newObjectNode();
+        child.put("leaf", "val");
+        root.set("parent", child);
+        root.put("top", "direct");
+        Map<String, String> flat = JacksonUtil.toFlatMap(root);
+        assertThat(flat).containsEntry("parent.leaf", "val");
+        assertThat(flat).containsEntry("top", "direct");
+    }
+
+    @Test
+    public void toFlatMap_emptyObject_returnsEmptyMap() {
+        Map<String, String> flat = JacksonUtil.toFlatMap(JacksonUtil.newObjectNode());
+        assertThat(flat).isEmpty();
+    }
+
+    // -----------------------------------------------------------------------
+    // replaceUuidsRecursively
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void replaceUuidsRecursively_replacesUuidsInTextFields() {
+        UUID original = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        UUID replacement = UUID.fromString("ffffffff-ffff-ffff-ffff-ffffffffffff");
+        ObjectNode node = JacksonUtil.newObjectNode();
+        node.put("id", original.toString());
+        JacksonUtil.replaceUuidsRecursively(node, Set.of(), null, u -> replacement, true);
+        assertThat(node.get("id").asText()).isEqualTo(replacement.toString());
+    }
+
+    @Test
+    public void replaceUuidsRecursively_skippedRootField_notReplaced() {
+        UUID original = UUID.fromString("550e8400-e29b-41d4-a716-446655440000");
+        ObjectNode node = JacksonUtil.newObjectNode();
+        node.put("skipped", original.toString());
+        JacksonUtil.replaceUuidsRecursively(node, Set.of("skipped"), null, u -> UUID.randomUUID(), true);
+        assertThat(node.get("skipped").asText()).isEqualTo(original.toString());
+    }
+
+    @Test
+    public void replaceUuidsRecursively_uuidsInArrayElements_replaced() {
+        UUID original = UUID.fromString("6ba7b810-9dad-11d1-80b4-00c04fd430c8");
+        UUID replacement = UUID.fromString("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
+        ObjectNode root = JacksonUtil.newObjectNode();
+        ArrayNode arr = JacksonUtil.newArrayNode();
+        arr.add(original.toString());
+        root.set("ids", arr);
+        JacksonUtil.replaceUuidsRecursively(root, Set.of(), null, u -> replacement, true);
+        assertThat(root.get("ids").get(0).asText()).isEqualTo(replacement.toString());
     }
 
 }
