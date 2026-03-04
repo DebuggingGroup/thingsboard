@@ -318,7 +318,7 @@ public class UserServiceImpl extends AbstractCachedEntityService<UserCacheKey, U
     public UserCredentials generatePasswordResetToken(UserCredentials userCredentials) {
         userCredentials.setResetToken(generateSafeToken(DEFAULT_TOKEN_LENGTH));
         int ttlHours = securitySettingsService.getSecuritySettings().getPasswordResetTokenTtl();
-        userCredentials.setResetTokenExpTime(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(ttlHours));
+        userCredentials.setResetTokenExpTime(getCurrentTimeMillis() + TimeUnit.HOURS.toMillis(ttlHours));
         return userCredentials;
     }
 
@@ -326,8 +326,13 @@ public class UserServiceImpl extends AbstractCachedEntityService<UserCacheKey, U
     public UserCredentials generateUserActivationToken(UserCredentials userCredentials) {
         userCredentials.setActivateToken(generateSafeToken(DEFAULT_TOKEN_LENGTH));
         int ttlHours = securitySettingsService.getSecuritySettings().getUserActivationTokenTtl();
-        userCredentials.setActivateTokenExpTime(System.currentTimeMillis() + TimeUnit.HOURS.toMillis(ttlHours));
+        userCredentials.setActivateTokenExpTime(getCurrentTimeMillis() + TimeUnit.HOURS.toMillis(ttlHours));
         return userCredentials;
+    }
+
+    // package-private to allow spy-based time control in tests
+    long getCurrentTimeMillis() {
+        return System.currentTimeMillis();
     }
 
     @Override
