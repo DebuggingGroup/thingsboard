@@ -19,6 +19,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.junit.Before;
 import org.junit.Test;
 import org.thingsboard.server.common.data.TransportPayloadType;
+import org.thingsboard.server.common.msg.session.FeatureType;
 import org.thingsboard.server.dao.service.DaoSqlTest;
 import org.thingsboard.server.transport.mqtt.MqttTestConfigProperties;
 import org.thingsboard.server.transport.mqtt.mqttv3.attributes.AbstractMqttAttributesIntegrationTest;
@@ -27,9 +28,26 @@ import static org.thingsboard.server.common.data.device.profile.MqttTopics.DEVIC
 import static org.thingsboard.server.common.data.device.profile.MqttTopics.DEVICE_ATTRIBUTES_SHORT_TOPIC;
 import static org.thingsboard.server.common.data.device.profile.MqttTopics.DEVICE_ATTRIBUTES_TOPIC;
 
+import org.eclipse.paho.client.mqttv3.MqttMessage;
+import org.thingsboard.common.util.JacksonUtil;
+import org.thingsboard.server.transport.mqtt.mqttv3.MqttTestCallback;
+import org.thingsboard.server.transport.mqtt.mqttv3.MqttTestClient;
+
+import java.util.concurrent.TimeUnit;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+
 @Slf4j
 @DaoSqlTest
 public class MqttAttributesUpdatesJsonIntegrationTest extends AbstractMqttAttributesIntegrationTest {
+
+    private static final String SHARED_ATTRIBUTES_PAYLOAD =
+            "{\"sharedStr\":\"value1\",\"sharedBool\":true,\"sharedDbl\":42.0,\"sharedLong\":73," +
+                    "\"sharedJson\":{\"someNumber\":42,\"someArray\":[1,2,3],\"someNestedObject\":{\"key\":\"value\"}}}";
 
     @Before
     public void beforeTest() throws Exception {
@@ -59,5 +77,43 @@ public class MqttAttributesUpdatesJsonIntegrationTest extends AbstractMqttAttrib
     @Test
     public void testJsonSubscribeToAttributesUpdatesFromTheServerGateway() throws Exception {
         processJsonGatewayTestSubscribeToAttributesUpdates();
+    }
+
+    @Test
+    public void testSubscribeToAttributesUpdatesRecordsTopicWithStub() throws Exception {
+        MqttTestClient client = new MqttTestClient();
+        client.connectAndWait(accessToken);
+
+        TopicCapturingMqttTestCallback callback = new TopicCapturingMqttTestCallback();
+        client.setCallback(callback);
+
+        subscribeAndWait(client, DEVICE_ATTRIBUTES_TOPIC, savedDevice.getId(), FeatureType.ATTRIBUTES);
+
+        doPostAsync("/api/plugins/telemetry/DEVICE/" + savedDevice.getId().getId()
+                + "/attributes/SHARED_SCOPE", SHARED_ATTRIBUTES_PAYLOAD, String.class, status().isOk());
+
+        assertThat(callback.getSubscribeLatch().await(DEFAULT_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+                .as("await callback").isTrue();
+
+        assertNotNull(callback.getPayloadBytes());
+        assertEquals(JacksonUtil.toJsonNode(SHARED_ATTRIBUTES_PAYLOAD),
+                JacksonUtil.fromBytes(callback.getPayloadBytes()));
+        assertEquals(DEVICE_ATTRIBUTES_TOPIC, callback.getLastTopic());
+
+        client.disconnect();
+    }
+
+    private static class TopicCapturingMqttTestCallback extends MqttTestCallback {
+        private String lastTopic;
+
+        @Override
+        public void messageArrived(String requestTopic, MqttMessage mqttMessage) {
+            super.messageArrived(requestTopic, mqttMessage);
+            lastTopic = requestTopic;
+        }
+
+        public String getLastTopic() {
+            return lastTopic;
+        }
     }
 }

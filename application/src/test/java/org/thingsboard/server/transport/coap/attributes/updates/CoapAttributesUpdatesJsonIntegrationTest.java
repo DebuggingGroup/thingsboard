@@ -30,6 +30,7 @@ import org.thingsboard.server.transport.coap.CoapTestCallback;
 import org.thingsboard.server.transport.coap.CoapTestClient;
 import org.thingsboard.server.transport.coap.CoapTestConfigProperties;
 import org.thingsboard.server.transport.coap.attributes.AbstractCoapAttributesIntegrationTest;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import java.util.concurrent.TimeUnit;
 
@@ -41,6 +42,8 @@ import static org.junit.Assert.assertTrue;
 @DaoSqlTest
 public class CoapAttributesUpdatesJsonIntegrationTest extends AbstractCoapAttributesIntegrationTest {
 
+    private static final String SHARED_ATTRIBUTES_PAYLOAD = "{\"sharedStr\":\"value1\",\"sharedBool\":true,\"sharedDbl\":42.0,\"sharedLong\":73," +
+            "\"sharedJson\":{\"someNumber\":42,\"someArray\":[1,2,3],\"someNestedObject\":{\"key\":\"value\"}}}";
     @Before
     public void beforeTest() throws Exception {
         CoapTestConfigProperties configProperties = CoapTestConfigProperties.builder()

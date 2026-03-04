@@ -33,10 +33,14 @@ public class ThingsboardErrorResponse {
     private final long timestamp;
 
     protected ThingsboardErrorResponse(final String message, final ThingsboardErrorCode errorCode, HttpStatus status) {
+        this(message, errorCode, status, System.currentTimeMillis());
+    }
+
+    protected ThingsboardErrorResponse(final String message, final ThingsboardErrorCode errorCode, HttpStatus status, long timestamp) {
         this.message = message;
         this.errorCode = errorCode;
         this.status = status;
-        this.timestamp = System.currentTimeMillis();
+        this.timestamp = timestamp;
     }
 
     public static ThingsboardErrorResponse of(final String message, final ThingsboardErrorCode errorCode, HttpStatus status) {
