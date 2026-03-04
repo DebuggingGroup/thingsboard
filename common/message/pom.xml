@@ -82,6 +82,16 @@
     </dependencies>
 
     <build>
+        <!-- Include .proto files in the jar so downstream modules (common/proto)
+             can extract tbmsg.proto via the protobuf-maven-plugin dependency scan. -->
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+            <resource>
+                <directory>src/main/proto</directory>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>

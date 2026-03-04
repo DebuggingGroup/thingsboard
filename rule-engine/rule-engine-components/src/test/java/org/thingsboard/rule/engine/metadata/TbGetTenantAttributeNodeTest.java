@@ -27,6 +27,7 @@ import org.mockito.ArgumentMatcher;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.thingsboard.common.util.JacksonUtil;
+import org.thingsboard.rule.engine.RecordingDbCallbackExecutor;
 import org.thingsboard.rule.engine.TestDbCallbackExecutor;
 import org.thingsboard.rule.engine.api.TbContext;
 import org.thingsboard.rule.engine.api.TbNodeConfiguration;
@@ -373,6 +374,47 @@ public class TbGetTenantAttributeNodeTest {
 
         assertThat(actualMessageCaptor.getValue().getData()).isEqualTo(msg.getData());
         assertThat(actualMessageCaptor.getValue().getMetaData()).isEqualTo(expectedMsgMetaData);
+    }
+
+    /**
+     * Demonstrates using a stub created via subclassing.
+     *
+     * RecordingDbCallbackExecutor extends TestDbCallbackExecutor and overrides
+     * execute(Runnable) to count how many times the executor is called.
+     * The execute(Runnable) method is the one Guava's Futures.addCallback invokes
+     * when it dispatches the onSuccess/onFailure callback to the provided executor.
+     *
+     * By asserting executeCallCount == 1 we prove that:
+     *  (a) the node dispatched the callback through the executor (not bypassing it), and
+     *  (b) the stubbed execute method was the one actually called — not the original.
+     */
+    @Test
+    public void givenRecordingExecutor_whenOnMsg_thenExecuteIsCalledExactlyOnce() {
+        // GIVEN
+        prepareMsgAndConfig(TbMsgSource.METADATA, DataToFetch.ATTRIBUTES, TENANT_ID);
+
+        var recordingExecutor = new RecordingDbCallbackExecutor();   // our new stub
+
+        when(ctxMock.getTenantId()).thenReturn(TENANT_ID);
+        when(ctxMock.getAttributesService()).thenReturn(attributesServiceMock);
+        when(attributesServiceMock.find(
+                eq(TENANT_ID), eq(TENANT_ID), eq(AttributeScope.SERVER_SCOPE),
+                argThat(new ListMatcher<>(List.of("sourceKey1", "sourceKey2", "sourceKey3")))))
+                .thenReturn(Futures.immediateFuture(Collections.emptyList()));
+
+        // Use the stub in place of the real executor
+        when(ctxMock.getDbCallbackExecutor()).thenReturn(recordingExecutor);
+
+        // WHEN
+        node.onMsg(ctxMock, msg);
+
+        // THEN – execute() was called exactly twice by Guava:
+        //   1st: to dispatch the findEntityAsync success callback in onMsg
+        //   2nd: to run the Futures.transform step inside getAttributesAsync
+        assertThat(recordingExecutor.getExecuteCallCount()).isEqualTo(2);
+
+        // The node still reached tellSuccess, confirming the stub ran the command
+        verify(ctxMock, times(1)).tellSuccess(any());
     }
 
     @Test
