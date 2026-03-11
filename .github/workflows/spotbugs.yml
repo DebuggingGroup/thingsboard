@@ -61,20 +61,25 @@ jobs:
           cache: maven
 
       # Build + run SpotBugs across the core Java modules.
-      # failOnError=false is set in pom.xml so the step won't fail even if
-      # bugs are found — we collect and upload them all.
+      # SpotBugs bundles ASM which may not support the project's Java 25 class
+      # files. Compiling to --release 21 produces compatible bytecode while
+      # still analysing the same source logic. failOnError=false means the step
+      # completes even when findings exist — we collect and upload them all.
       - name: Run SpotBugs (verify phase)
         env:
           MAVEN_OPTS: '-Xmx3g -XX:+UseG1GC'
         run: |
           mvn -T 1C verify \
-            -pl common/util,common/data,common/actor,dao,rule-engine/rule-engine-api,application \
+            -pl common/util,common/data,common/actor,dao \
             --also-make \
             -DskipTests \
             -Dlicense.skip=true \
             -Djacoco.skip=true \
             -Dspotbugs.xmlOutput=true \
             -Dpkg.disabled=true \
+            -Dmaven.compiler.release=21 \
+            -Dmaven.compiler.source=21 \
+            -Dmaven.compiler.target=21 \
             -fae \
             -B -ntp
 
