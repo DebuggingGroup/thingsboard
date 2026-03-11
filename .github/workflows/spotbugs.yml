@@ -60,26 +60,24 @@ jobs:
           java-version: '25'
           cache: maven
 
-      # Build + run SpotBugs across the core Java modules.
-      # SpotBugs bundles ASM which may not support the project's Java 25 class
-      # files. Compiling to --release 21 produces compatible bytecode while
-      # still analysing the same source logic. failOnError=false means the step
-      # completes even when findings exist — we collect and upload them all.
+      # Build + run SpotBugs on the core data module and its upstream deps.
+      # MAVEN_OPTS controls the Maven JVM; spotbugs.jvmArgs controls the
+      # separate SpotBugs subprocess JVM — both need to be sized for the
+      # GitHub Actions runner (~7 GB total RAM).
       - name: Run SpotBugs (verify phase)
         env:
-          MAVEN_OPTS: '-Xmx3g -XX:+UseG1GC'
+          MAVEN_OPTS: '-Xmx2g -XX:+UseG1GC'
         run: |
-          mvn -T 1C verify \
-            -pl common/util,common/data,common/actor,dao \
+          mvn verify \
+            -pl common/data \
             --also-make \
             -DskipTests \
             -Dlicense.skip=true \
             -Djacoco.skip=true \
             -Dspotbugs.xmlOutput=true \
+            -Dspotbugs.effort=Default \
+            -Dspotbugs.jvmArgs="-Xmx3g" \
             -Dpkg.disabled=true \
-            -Dmaven.compiler.release=21 \
-            -Dmaven.compiler.source=21 \
-            -Dmaven.compiler.target=21 \
             -fae \
             -B -ntp
 
