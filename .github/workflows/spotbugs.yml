@@ -53,11 +53,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 25 (Temurin)
+      - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '25'
+          java-version: '21'
           cache: maven
 
       # Build + run SpotBugs on the core data module and its upstream deps.
@@ -76,6 +76,7 @@ jobs:
             -Djacoco.skip=true \
             -Dspotbugs.xmlOutput=true \
             -Dpkg.disabled=true \
+            -Dmaven.compiler.release=21 \
             -B -ntp
 
       - name: List SpotBugs XML reports
